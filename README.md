@@ -36,7 +36,8 @@ app/
   scanner/etsy.py              Etsy autocomplete + competition count (polite scraping)
   scanner/scoring.py           spec scoring formula + candidate assembly
   server.py                    FastAPI webhook: idempotent button callbacks
-  generator.py                 Module 2 (Milestone 2 — stub)
+  generator.py                 Module 2: LLM spec -> xlsx -> listing copy -> approval
+  xlsx_builder.py              openpyxl renderer for LLM specs (theming, formulas)
   uploader.py                  Module 4 (Milestone 3 — stub, strategy-swappable)
   learner.py                   Module 5 (Milestone 4 — stub)
 scan.py / generate.py / upload.py / learn.py   worker entrypoints
@@ -94,7 +95,11 @@ python scripts/set_webhook.py https://<web-service>.up.railway.app
   (`upload_product(job) -> product_id`) is strategy-swappable either way.
 - [x] **M1** — schema + scanner + daily Telegram digest (this commit).
   Acceptance: ranked digest with real data for 3 consecutive days.
-- [ ] **M2** — generator + approval flow (webhook transitions already wired).
+- [x] **M2** — generator + approval flow: LLM spec (GENERATION_MODEL) →
+  `app/xlsx_builder.py` (styled, frozen headers, live formulas, instructions
+  sheet) → listing copy (ROUTINE_MODEL, 13 tags, $9–19) → Telegram approval
+  message with the .xlsx attached. Acceptance: ✅ on a digest item produces a
+  polished .xlsx in Telegram within ~3 minutes.
 - [ ] **M3** — uploader per spike verdict.
 - [ ] **M4** — weekly performance loop + learning context (context plumbing to
   the scanner prompt already in place via `db.performance_context()`).

@@ -38,7 +38,7 @@
 
 ## צ'קליסט הפעלה (הפעולות שלך, ~30 דקות)
 
-1. ⬜ Supabase: פרויקט חדש → להריץ `migrations/001_init.sql` + `002_niches.sql`.
+1. ⬜ Supabase: פרויקט חדש → להריץ את **כל** קבצי `migrations/` לפי הסדר (001–005).
 2. ⬜ BotFather: ליצור בוט, להשיג `TELEGRAM_BOT_TOKEN` ואת ה-chat id שלך.
 3. ⬜ למלא `.env` לפי `.env.example` (כולל `TRENDMILL_NICHES`).
 4. ⬜ Railway: שירות web + קרון יומי (`23 6 * * *`) + קרון שבועי (`41 6 * * 1`) — טבלה ב-README.

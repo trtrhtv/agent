@@ -117,6 +117,18 @@ def performance_context(niche: str | None = None, limit: int = 5) -> dict[str, l
     return {"top": rows[:limit], "bottom": list(reversed(rows[-limit:])) if rows else []}
 
 
+# --- competitor snapshots (taken at product-generation time) ---
+
+def save_competitor_snapshot(keyword: str, listings: list[dict[str, Any]]) -> None:
+    try:
+        client().table("competitor_snapshots").insert(
+            {"keyword": keyword, "listings": listings}
+        ).execute()
+    except Exception:
+        # Snapshots are context, never load-bearing.
+        pass
+
+
 # --- events (audit log of state transitions) ---
 
 def log_event(

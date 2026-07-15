@@ -132,3 +132,9 @@ def run() -> None:
         total += stats["revenue_usd"]
 
     _send_weekly_report(week_start, report_rows, total)
+
+    # Module 6: with fresh outcome data in place, run the learning brain —
+    # signal calibration + causal post-mortems + distilled lessons.
+    from app import brain
+
+    brain.run_weekly()

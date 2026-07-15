@@ -19,7 +19,7 @@ import logging
 import os
 import sys
 
-from app import db, notify
+from app import brain, db, notify
 from app.config import (
     DIGEST_SIZE,
     MAX_COMPETITION_CHECKS,
@@ -60,6 +60,7 @@ def rerank_with_llm(candidates: list[Candidate], niche_key: str, niche: dict) ->
     prompt = (
         "You rank keyword opportunities for sellable Excel/Google Sheets products "
         f"in the '{niche_key}' niche. Target audience: {niche.get('audience', 'online buyers')}.\n"
+        f"{brain.lessons_block(niche_key)}"
         f"Past sales performance in this niche (may be empty):\n{json.dumps(perf_lines)}\n\n"
         f"Candidates:\n{json.dumps(items)}\n\n"
         "Re-rank them best-first by expected revenue for a solo seller: favor "

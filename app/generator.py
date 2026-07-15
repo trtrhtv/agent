@@ -21,9 +21,10 @@ import os
 import re
 from typing import Any
 
-from app import db, notify
+from app import brain, db, notify
 from app.config import GENERATION_MODEL, OUTPUT_DIR
 from app.llm import chat_json
+from app.scanner import competitors
 from app.xlsx_builder import build_xlsx
 
 log = logging.getLogger("generator")
@@ -36,7 +37,7 @@ SPEC_PROMPT = """You design premium, ready-to-sell Excel/Google Sheets templates
 
 Design a multi-sheet spreadsheet template for the product keyword: "{keyword}"
 Buyer rationale: {rationale}
-{vary_clause}
+{vary_clause}{lessons_clause}{competitors_clause}
 Reply with ONLY valid JSON matching exactly this schema:
 {{
   "product_name": "short product name",
@@ -70,7 +71,7 @@ COPY_PROMPT = """Write the sales listing for a digital spreadsheet template.
 Keyword: "{keyword}"
 Product name: {product_name}
 Sheets included: {sheet_names}
-
+{competitors_clause}
 Reply with ONLY valid JSON:
 {{
   "title": "listing title, max 140 chars, benefit-led, includes the keyword naturally",
@@ -176,11 +177,27 @@ def generate_product(job_id: str) -> None:
             f"were {prev_sheets}. Take a noticeably different structure and angle.\n"
         )
 
+    # Brain context: accumulated lessons + a fresh competitor snapshot, so the
+    # product is designed to beat what already ranks for this keyword.
+    lessons_clause = brain.lessons_block(opp.get("niche"))
+    listings = competitors.snapshot(keyword)
+    competitors_clause = ""
+    if listings:
+        db.save_competitor_snapshot(keyword, listings)
+        competitors_clause = (
+            "\nTop competing listings for this keyword right now:\n"
+            f"{json.dumps(listings)}\n"
+            "Design to beat them: cover the gaps their titles suggest they miss, "
+            "and justify a price near the top of the allowed range only if the "
+            "product is clearly more complete.\n"
+        )
+
     # LLM call #1 — spreadsheet spec (the only place the strong model is used)
     spec = _validate_spec(
         chat_json(
             [{"role": "user", "content": SPEC_PROMPT.format(
-                keyword=keyword, rationale=rationale, vary_clause=vary_clause)}],
+                keyword=keyword, rationale=rationale, vary_clause=vary_clause,
+                lessons_clause=lessons_clause, competitors_clause=competitors_clause)}],
             model=GENERATION_MODEL,
             max_tokens=8000,
         )
@@ -197,6 +214,7 @@ def generate_product(job_id: str) -> None:
             keyword=keyword,
             product_name=spec.get("product_name", keyword),
             sheet_names=json.dumps([s.get("name") for s in spec["sheets"]]),
+            competitors_clause=competitors_clause,
         )}],
         max_tokens=2000,
     )

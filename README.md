@@ -111,5 +111,13 @@ python scripts/set_webhook.py https://<web-service>.up.railway.app
 - **Multi-niche**: parallel product lines via `config.NICHES` +
   `TRENDMILL_NICHES` (currently `spreadsheets`, `trader_tools`); per-niche
   digests, idempotency, and learning context.
+- **Learning brain (`app/brain.py` + migration 003)** — runs weekly after the
+  sales report: causal post-mortems for products that didn't sell (causes with
+  evidence + confidence, improvements, one generalizable lesson each; only
+  after 14 days live, capped per run), pure-statistics signal calibration
+  (buckets under 5 samples stay silent instead of overfitting), and a lessons
+  memory injected into the daily re-rank and into product generation.
+  Competitor snapshots (`app/scanner/competitors.py`, Etsy JSON-LD) are taken
+  at generation time so every product is designed against what already ranks.
 
 Owner-facing roadmap, deploy checklist, and platform comparison: [docs/ROADMAP.md](docs/ROADMAP.md).

@@ -86,9 +86,12 @@ def _fmt_competition(count: int | None) -> str:
     return "לא ידוע" if count is None else f"{count:,}"
 
 
-def send_daily_digest(opportunities: list[dict[str, Any]]) -> None:
-    """One message: ranked list + one button row (✅/❌) per opportunity."""
-    lines = [f"📊 <b>סריקת טרנדים יומית</b> — {opportunities[0]['scan_date']}\n"]
+def send_daily_digest(opportunities: list[dict[str, Any]], label: str | None = None) -> None:
+    """One message per niche: ranked list + one button row (✅/❌) per opportunity."""
+    header = f"📊 <b>סריקת טרנדים יומית</b> — {opportunities[0]['scan_date']}"
+    if label:
+        header += f"\n🗂 נישה: <b>{html.escape(label)}</b>"
+    lines = [header + "\n"]
     keyboard: list[list[dict[str, str]]] = []
 
     for i, opp in enumerate(opportunities, start=1):

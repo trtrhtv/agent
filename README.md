@@ -100,6 +100,16 @@ python scripts/set_webhook.py https://<web-service>.up.railway.app
   sheet) → listing copy (ROUTINE_MODEL, 13 tags, $9–19) → Telegram approval
   message with the .xlsx attached. Acceptance: ✅ on a digest item produces a
   polished .xlsx in Telegram within ~3 minutes.
-- [ ] **M3** — uploader per spike verdict.
-- [ ] **M4** — weekly performance loop + learning context (context plumbing to
-  the scanner prompt already in place via `db.performance_context()`).
+- [x] **M3 (code)** — uploader behind `upload_product(job)` with both
+  strategies: A = official API (auto-detects unsupported endpoints and says
+  so), B = Playwright UI automation (selectors need one live verification).
+  ⬜ Acceptance still pending: run the spike with a real token, set
+  `UPLOAD_STRATEGY`, and push one real product live.
+- [x] **M4 (code)** — weekly sales pull (paginated /v2/sales, refunds
+  excluded), idempotent `performance` upsert, Hebrew weekly report; feeds the
+  scanner's per-niche re-rank. ⬜ Acceptance pending live products.
+- **Multi-niche**: parallel product lines via `config.NICHES` +
+  `TRENDMILL_NICHES` (currently `spreadsheets`, `trader_tools`); per-niche
+  digests, idempotency, and learning context.
+
+Owner-facing roadmap, deploy checklist, and platform comparison: [docs/ROADMAP.md](docs/ROADMAP.md).

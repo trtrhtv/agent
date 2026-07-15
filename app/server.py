@@ -134,18 +134,19 @@ def _handle_job_action(action: str, job_id: str, callback_id: str,
 
 def _run_upload(job_id: str) -> None:
     try:
-        from app.uploader import upload_product
+        from app.uploader import get_product_url, upload_product
 
         job = db.get_job(job_id)
         product_id = upload_product(job)
         db.update_job(job_id, {"status": "uploaded", "gumroad_product_id": product_id})
         db.log_event("product_job", job_id, "uploaded", "approved")
-    except NotImplementedError:
+        url = get_product_url(product_id)
         notify.send_message(
-            "ℹ️ מעלה Gumroad (מיילסטון 3) עדיין לא פרוס — "
-            "המוצר נשאר בסטטוס approved ויועלה כשהמודול יעלה."
+            "🚀 <b>המוצר עלה ל-Gumroad!</b>\n"
+            f"{job.get('title', '')}\n"
+            + (f"🔗 {url}" if url else f"מזהה מוצר: {product_id}")
         )
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001 — fail soft, report loud
         db.update_job(job_id, {"status": "failed", "error": str(exc)[:2000]})
         db.log_event("product_job", job_id, "failed", "approved",
                      {"error": str(exc)[:500]})

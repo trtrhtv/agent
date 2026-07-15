@@ -8,8 +8,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from app.config import RELEVANCE_TERMS
-
 
 @dataclass
 class Candidate:
@@ -34,9 +32,9 @@ def competition_penalty(count: int | None) -> float:
     return 0.1
 
 
-def is_relevant(keyword: str) -> bool:
+def is_relevant(keyword: str, relevance_terms: list[str]) -> bool:
     kw = keyword.lower()
-    return any(term in kw for term in RELEVANCE_TERMS)
+    return any(term in kw for term in relevance_terms)
 
 
 def suggestion_score(position: int) -> float:
@@ -48,17 +46,18 @@ def suggestion_score(position: int) -> float:
 def build_candidates(
     seed_trend_scores: dict[str, float],
     suggestions_by_seed: dict[str, list[str]],
+    relevance_terms: list[str],
 ) -> list[Candidate]:
     """Merge both sources, filter for relevance, dedupe (best score wins)."""
     merged: dict[str, Candidate] = {}
 
     for seed, score in seed_trend_scores.items():
-        if is_relevant(seed):
+        if is_relevant(seed, relevance_terms):
             merged[seed] = Candidate(keyword=seed, source="google_trends", trend_score=score)
 
     for seed, suggestions in suggestions_by_seed.items():
         for pos, suggestion in enumerate(suggestions):
-            if not is_relevant(suggestion):
+            if not is_relevant(suggestion, relevance_terms):
                 continue
             score = suggestion_score(pos)
             existing = merged.get(suggestion)

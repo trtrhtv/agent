@@ -17,13 +17,11 @@ def client() -> Client:
 
 # --- opportunities ---
 
-def opportunities_for_date(scan_date: str) -> list[dict[str, Any]]:
-    res = (
-        client().table("opportunities")
-        .select("*")
-        .eq("scan_date", scan_date)
-        .execute()
-    )
+def opportunities_for_date(scan_date: str, niche: str | None = None) -> list[dict[str, Any]]:
+    query = client().table("opportunities").select("*").eq("scan_date", scan_date)
+    if niche:
+        query = query.eq("niche", niche)
+    res = query.execute()
     return res.data or []
 
 
@@ -94,18 +92,29 @@ def update_job(job_id: str, fields: dict[str, Any]) -> None:
 
 # --- performance (learning context for Module 1, step 4) ---
 
-def performance_context(limit: int = 5) -> dict[str, list[dict[str, Any]]]:
-    """Top and bottom performers with product titles, for the re-rank prompt."""
-    base = client().table("performance").select(
-        "revenue_usd, sales_count, views, week_start, product_jobs(title)"
-    )
+def performance_context(niche: str | None = None, limit: int = 5) -> dict[str, list[dict[str, Any]]]:
+    """Top and bottom performers with product titles, for the re-rank prompt.
+    Filtered per niche (via the job's opportunity) so each product line learns
+    from its own sales history."""
     try:
-        top = base.order("revenue_usd", desc=True).limit(limit).execute().data or []
-        bottom = base.order("revenue_usd", desc=False).limit(limit).execute().data or []
+        res = (
+            client().table("performance")
+            .select("revenue_usd, sales_count, views, week_start, "
+                    "product_jobs(title, opportunities(niche))")
+            .execute()
+        )
+        rows = res.data or []
     except Exception:
         # Table empty or query failed — learning context is optional.
         return {"top": [], "bottom": []}
-    return {"top": top, "bottom": bottom}
+
+    if niche:
+        rows = [
+            r for r in rows
+            if ((r.get("product_jobs") or {}).get("opportunities") or {}).get("niche") == niche
+        ]
+    rows.sort(key=lambda r: float(r.get("revenue_usd") or 0), reverse=True)
+    return {"top": rows[:limit], "bottom": list(reversed(rows[-limit:])) if rows else []}
 
 
 # --- events (audit log of state transitions) ---

@@ -21,39 +21,67 @@ def env(name: str, default: str | None = None) -> str:
 ROUTINE_MODEL = os.environ.get("ROUTINE_MODEL", "deepseek/deepseek-chat")
 GENERATION_MODEL = os.environ.get("GENERATION_MODEL", "anthropic/claude-sonnet-4-6")
 
-# --- Seed terms for the daily scan (Module 1, step 1) ---
-SEED_TERMS = [
-    "budget spreadsheet",
-    "planner template",
-    "tracker excel",
-    "wedding spreadsheet",
-    "small business template",
-    "expense tracker",
-    "habit tracker template",
-    "meal planner spreadsheet",
-    "budget template google sheets",
-    "inventory spreadsheet",
-    "wedding budget template",
-    "adhd planner digital",
-    "finance tracker spreadsheet",
-    "content calendar template",
-    "workout tracker spreadsheet",
-]
+# --- Niches: parallel product lines through the same pipeline ---
+# Each niche has its own seed terms, relevance filter, and Telegram label.
+# Activate a subset via TRENDMILL_NICHES="spreadsheets,trader_tools".
+NICHES: dict[str, dict] = {
+    "spreadsheets": {
+        "label": "תבניות ספרדשיט",
+        "seeds": [
+            "budget spreadsheet",
+            "planner template",
+            "tracker excel",
+            "wedding spreadsheet",
+            "small business template",
+            "expense tracker",
+            "habit tracker template",
+            "meal planner spreadsheet",
+            "budget template google sheets",
+            "inventory spreadsheet",
+            "wedding budget template",
+            "adhd planner digital",
+            "finance tracker spreadsheet",
+            "content calendar template",
+            "workout tracker spreadsheet",
+        ],
+        "relevance_terms": [
+            "spreadsheet", "template", "excel", "sheet", "tracker",
+            "planner", "budget", "calculator", "dashboard", "log",
+        ],
+        "audience": "US/global consumers and small businesses buying ready-made templates",
+    },
+    # Picks-and-shovels for prediction-market / retail traders (see docs/RESEARCH.md):
+    # sell tools TO traders instead of trading — zero capital at risk.
+    "trader_tools": {
+        "label": "כלים לסוחרים",
+        "seeds": [
+            "trading journal spreadsheet",
+            "bet tracker spreadsheet",
+            "bankroll management spreadsheet",
+            "sports betting tracker",
+            "crypto portfolio spreadsheet",
+            "options trading journal",
+            "prediction market tracker",
+            "stock portfolio template",
+            "day trading log excel",
+            "dividend tracker spreadsheet",
+        ],
+        "relevance_terms": [
+            "tracker", "journal", "spreadsheet", "excel", "template",
+            "log", "calculator", "portfolio", "dashboard", "sheet", "bankroll",
+        ],
+        "audience": "retail traders and bettors who track performance in spreadsheets",
+    },
+}
 
-# A candidate keyword must contain at least one of these to be considered
-# a digital-spreadsheet product opportunity.
-RELEVANCE_TERMS = [
-    "spreadsheet",
-    "template",
-    "excel",
-    "sheet",
-    "tracker",
-    "planner",
-    "budget",
-    "calculator",
-    "dashboard",
-    "log",
-]
+
+def active_niches() -> dict[str, dict]:
+    raw = os.environ.get("TRENDMILL_NICHES", "")
+    keys = [k.strip() for k in raw.split(",") if k.strip()] or list(NICHES)
+    unknown = [k for k in keys if k not in NICHES]
+    if unknown:
+        raise RuntimeError(f"Unknown niches in TRENDMILL_NICHES: {unknown}")
+    return {k: NICHES[k] for k in keys}
 
 # --- Scan tuning ---
 MAX_COMPETITION_CHECKS = 25   # cap Etsy result-count scrapes per run (politeness)

@@ -13,11 +13,15 @@ def run() -> None:
 
     res = (
         db.client().table("product_jobs")
-        .select("id")
+        .select("id, spec")
         .eq("status", "pending_generation")
         .execute()
     )
     for row in res.data or []:
+        # Bundle jobs are built by app.bundles, not the product generator —
+        # skip them here so the safety-net cron can't mangle one mid-build.
+        if (row.get("spec") or {}).get("bundle_members") is not None:
+            continue
         generate_product(row["id"])
 
 

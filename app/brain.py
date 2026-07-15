@@ -318,16 +318,18 @@ def propose_actions() -> int:
             continue
         price = float(job.get("suggested_price_usd") or 12)
         new_price = max(7.0, round(price * 0.75, 2))
+        # A bundle can't be meaningfully "regenerated" — offer price/retire only.
+        is_bundle = ((job.get("opportunities") or {}).get("source")) == "bundle"
+        second_row = [{"text": "🗑 הסר מהחנות", "callback_data": f"retire:{job['id']}"}]
+        if not is_bundle:
+            second_row.insert(0, {"text": "🔁 גרסה משופרת", "callback_data": f"v2:{job['id']}"})
         notify.send_message(
             f"🛠 <b>מוצר תקוע {ACTION_MIN_AGE_DAYS}+ ימים בלי מכירות:</b>\n"
             f"{html.escape(str(job['title'])[:80])}\n"
             f"מחיר נוכחי: ${price} | מה עושים?",
             reply_markup={"inline_keyboard": [
                 [{"text": f"💸 הורד מחיר ל-${new_price}", "callback_data": f"pdrop:{job['id']}"}],
-                [
-                    {"text": "🔁 גרסה משופרת", "callback_data": f"v2:{job['id']}"},
-                    {"text": "🗑 הסר מהחנות", "callback_data": f"retire:{job['id']}"},
-                ],
+                second_row,
             ]},
         )
         db.log_event("product_job", job["id"], "action_proposed",

@@ -62,7 +62,8 @@ Requirements:
   (rows 1-3 are title/tagline/header), so a 10-row sheet spans rows 4-13 —
   reference those rows in formulas (e.g. "=SUM(B4:B13)").
 - Cohesive professional color theme appropriate to the niche.
-- 5-8 concise how_to_use steps.
+- 5-8 concise how_to_use steps; one step MUST explain importing into Google
+  Sheets (File > Import > Upload) so the product serves both Excel and Sheets buyers.
 - All content in English (US/global buyers)."""
 
 
@@ -74,7 +75,7 @@ Sheets included: {sheet_names}
 {competitors_clause}
 Reply with ONLY valid JSON:
 {{
-  "title": "listing title, max 140 chars, benefit-led, includes the keyword naturally",
+  "title": "listing title, max 140 chars, benefit-led, includes the keyword naturally and mentions it works in both Excel and Google Sheets",
   "description_md": "markdown: opening hook, benefits, a 'What's inside' bullet list (one bullet per sheet), instant-download note",
   "tags": ["exactly 13 short buyer-search tags"],
   "price_usd": 14.0
@@ -173,9 +174,16 @@ def generate_product(job_id: str) -> None:
     if previous_spec:
         prev_sheets = [s.get("name") for s in (previous_spec.get("sheets") or [])]
         vary_clause = (
-            "This is a REGENERATION: the owner rejected a previous draft whose sheets "
-            f"were {prev_sheets}. Take a noticeably different structure and angle.\n"
+            "This is a REGENERATION: the previous version of this product "
+            f"(sheets: {prev_sheets}) did not perform. Take a noticeably different "
+            "structure and angle.\n"
         )
+        improvements = previous_spec.get("improvements")
+        if improvements:
+            vary_clause += (
+                "A causal post-mortem identified these specific improvements — "
+                f"apply them: {json.dumps(improvements)}\n"
+            )
 
     # Brain context: accumulated lessons + a fresh competitor snapshot, so the
     # product is designed to beat what already ranks for this keyword.
@@ -203,10 +211,17 @@ def generate_product(job_id: str) -> None:
         )
     )
 
-    # Build the workbook
+    # Build the workbook + a themed cover image (conversion asset)
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     file_path = os.path.join(OUTPUT_DIR, _safe_filename(keyword, job_id))
     build_xlsx(spec, file_path)
+    cover_path: str | None = None
+    try:
+        from app.cover import render_cover
+
+        cover_path = render_cover(spec, file_path.replace(".xlsx", ".png"))
+    except Exception as exc:  # noqa: BLE001 — a cover is never load-bearing
+        log.warning("cover render failed: %s", exc)
 
     # LLM call #2 — listing copy on the cheap model
     raw_copy = chat_json(
@@ -231,5 +246,10 @@ def generate_product(job_id: str) -> None:
     })
     db.log_event("product_job", job_id, "pending_approval", job["status"])
 
+    if cover_path:
+        try:
+            notify.send_photo(cover_path, caption=f"🖼 קאבר: {html.escape(copy['title'][:80])}")
+        except Exception as exc:  # noqa: BLE001
+            log.warning("cover send failed: %s", exc)
     _send_approval_message(job_id, keyword, copy, spec, file_path)
     log.info("job %s -> pending_approval (%s)", job_id, file_path)

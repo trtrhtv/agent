@@ -45,9 +45,10 @@ def products_with_outcomes() -> list[dict[str, Any]]:
     res = (
         db.client().table("product_jobs")
         .select(
-            "id, title, suggested_price_usd, tags, created_at, "
-            "opportunities(keyword, niche, trend_score, competition_count, "
-            "final_score, source), performance(sales_count, revenue_usd)"
+            "id, title, suggested_price_usd, tags, created_at, file_path, "
+            "gumroad_product_id, opportunities(keyword, niche, trend_score, "
+            "competition_count, final_score, source), "
+            "performance(sales_count, revenue_usd)"
         )
         .eq("status", "uploaded")
         .execute()
@@ -283,6 +284,87 @@ def run_post_mortem() -> list[str]:
     return new_lessons
 
 
+# --- 3. active loop: propose actions the owner approves with one tap ----------
+
+ACTION_MIN_AGE_DAYS = 21
+BUNDLE_MIN_SELLERS = 3
+
+
+def _proposed_job_ids() -> set[str]:
+    res = (
+        db.client().table("events")
+        .select("entity_id")
+        .eq("entity", "product_job")
+        .eq("to_status", "action_proposed")
+        .execute()
+    )
+    return {r["entity_id"] for r in res.data or []}
+
+
+def propose_actions() -> int:
+    """For products live 21+ days with zero sales: one-tap fix proposals."""
+    rows = products_with_outcomes()
+    cutoff = dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=ACTION_MIN_AGE_DAYS)
+    proposed = _proposed_job_ids()
+    count = 0
+    for job in rows:
+        if job["total_sales"] > 0 or job["id"] in proposed:
+            continue
+        try:
+            created = dt.datetime.fromisoformat(str(job["created_at"]).replace("Z", "+00:00"))
+        except ValueError:
+            continue
+        if created > cutoff:
+            continue
+        price = float(job.get("suggested_price_usd") or 12)
+        new_price = max(7.0, round(price * 0.75, 2))
+        notify.send_message(
+            f"🛠 <b>מוצר תקוע {ACTION_MIN_AGE_DAYS}+ ימים בלי מכירות:</b>\n"
+            f"{html.escape(str(job['title'])[:80])}\n"
+            f"מחיר נוכחי: ${price} | מה עושים?",
+            reply_markup={"inline_keyboard": [
+                [{"text": f"💸 הורד מחיר ל-${new_price}", "callback_data": f"pdrop:{job['id']}"}],
+                [
+                    {"text": "🔁 גרסה משופרת", "callback_data": f"v2:{job['id']}"},
+                    {"text": "🗑 הסר מהחנות", "callback_data": f"retire:{job['id']}"},
+                ],
+            ]},
+        )
+        db.log_event("product_job", job["id"], "action_proposed",
+                     meta={"suggested_price_drop": new_price})
+        count += 1
+    return count
+
+
+def propose_bundles() -> None:
+    """When a niche has enough selling products and no bundle yet — propose one."""
+    rows = products_with_outcomes()
+    by_niche: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for r in rows:
+        if r["total_sales"] > 0:
+            by_niche[(r.get("opportunities") or {}).get("niche") or "unknown"].append(r)
+    for niche, sellers in by_niche.items():
+        if len(sellers) < BUNDLE_MIN_SELLERS:
+            continue
+        existing = (
+            db.client().table("opportunities")
+            .select("id").eq("niche", niche).eq("source", "bundle").limit(1)
+            .execute()
+        )
+        if existing.data:
+            continue
+        top = sorted(sellers, key=lambda r: r["total_revenue"], reverse=True)[:3]
+        names = "\n".join(f"   • {html.escape(str(t['title'])[:60])}" for t in top)
+        notify.send_message(
+            f"📦 <b>הזדמנות באנדל בנישה {html.escape(niche)}:</b>\n"
+            f"יש {len(sellers)} מוצרים שמוכרים. המובילים:\n{names}\n"
+            "לארוז אותם לחבילה ב-$24–39?",
+            reply_markup={"inline_keyboard": [
+                [{"text": "📦 צור באנדל", "callback_data": f"bundle:{niche}"}],
+            ]},
+        )
+
+
 # --- weekly entrypoint --------------------------------------------------------
 
 def run_weekly() -> None:
@@ -299,5 +381,7 @@ def run_weekly() -> None:
             if len(lessons) > 5:
                 parts.append(f"(+{len(lessons) - 5} לקחים נוספים נשמרו)")
             notify.send_message("\n".join(parts))
+        propose_actions()
+        propose_bundles()
     except Exception as exc:  # noqa: BLE001
         notify.report_error("brain", exc)

@@ -75,6 +75,39 @@ NICHES: dict[str, dict] = {
 }
 
 
+# Seasonal seed boosts, merged into a niche's seeds for the current and next
+# month — catches demand at its rise instead of after it.
+SEASONAL_SEEDS: dict[str, dict[int, list[str]]] = {
+    "spreadsheets": {
+        1: ["new year goals template", "annual budget spreadsheet"],
+        2: ["tax deduction tracker", "tax prep checklist spreadsheet"],
+        3: ["tax spreadsheet", "spring cleaning checklist template"],
+        4: ["tax filing tracker", "garden planner spreadsheet"],
+        5: ["wedding season budget", "graduation party planner"],
+        6: ["summer camp planner", "vacation budget spreadsheet"],
+        7: ["back to school budget", "teacher planner template"],
+        8: ["back to school checklist", "college budget spreadsheet"],
+        9: ["holiday savings tracker", "halloween party planner"],
+        10: ["christmas budget spreadsheet", "black friday deal tracker"],
+        11: ["christmas gift tracker", "holiday meal planner"],
+        12: ["new year resolution tracker", "yearly review template"],
+    },
+    "trader_tools": {
+        1: ["tax lot tracker", "trading goals template"],
+        3: ["capital gains tax spreadsheet", "crypto tax tracker"],
+        9: ["nfl betting tracker", "fantasy football spreadsheet"],
+        10: ["nba betting tracker"],
+        12: ["portfolio year review template"],
+    },
+}
+
+
+def seasonal_seeds(niche_key: str, month: int) -> list[str]:
+    table = SEASONAL_SEEDS.get(niche_key, {})
+    next_month = month % 12 + 1
+    return list(dict.fromkeys(table.get(month, []) + table.get(next_month, [])))
+
+
 def active_niches() -> dict[str, dict]:
     raw = os.environ.get("TRENDMILL_NICHES", "")
     keys = [k.strip() for k in raw.split(",") if k.strip()] or list(NICHES)

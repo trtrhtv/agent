@@ -58,6 +58,19 @@ def send_document(
             return resp.json()
 
 
+def send_photo(file_path: str, caption: str = "") -> dict[str, Any]:
+    data: dict[str, Any] = {
+        "chat_id": env("TELEGRAM_OWNER_CHAT_ID"),
+        "caption": caption[:1024],
+        "parse_mode": "HTML",
+    }
+    with open(file_path, "rb") as fh:
+        with httpx.Client(timeout=TIMEOUT) as client:
+            resp = client.post(_api("sendPhoto"), data=data, files={"photo": fh})
+            resp.raise_for_status()
+            return resp.json()
+
+
 def answer_callback(callback_query_id: str, text: str) -> None:
     with httpx.Client(timeout=TIMEOUT) as client:
         client.post(

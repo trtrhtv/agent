@@ -103,6 +103,34 @@ def _upload_via_api(job: dict[str, Any]) -> str:
     return str(product_id)
 
 
+def set_price(product_id: str, price_usd: float) -> None:
+    """Change a live product's price (active-loop price experiments)."""
+    resp = httpx.put(
+        f"{API_BASE}/products/{product_id}",
+        params={"access_token": env("GUMROAD_ACCESS_TOKEN")},
+        data={"price": int(round(price_usd * 100))},
+        timeout=60,
+    )
+    resp.raise_for_status()
+
+
+def disable_product(product_id: str) -> None:
+    """Unpublish (retire) a live product."""
+    resp = httpx.put(
+        f"{API_BASE}/products/{product_id}/disable",
+        params={"access_token": env("GUMROAD_ACCESS_TOKEN")},
+        timeout=60,
+    )
+    if resp.status_code == 404:  # older API shape
+        resp = httpx.put(
+            f"{API_BASE}/products/{product_id}",
+            params={"access_token": env("GUMROAD_ACCESS_TOKEN")},
+            data={"published": "false"},
+            timeout=60,
+        )
+    resp.raise_for_status()
+
+
 def get_product_url(product_id: str) -> str | None:
     """Live product URL for the owner notification; None if lookup fails."""
     try:

@@ -25,6 +25,7 @@ from app.config import (
     MAX_COMPETITION_CHECKS,
     SHORTLIST_SIZE,
     active_niches,
+    seasonal_seeds,
 )
 from app.llm import chat_json
 from app.scanner import etsy, trends
@@ -94,7 +95,8 @@ def scan_niche(niche_key: str, niche: dict, today: str) -> None:
                  niche_key, today, len(existing))
         return
 
-    seeds: list[str] = niche["seeds"]
+    month = dt.date.fromisoformat(today).month
+    seeds: list[str] = list(dict.fromkeys(niche["seeds"] + seasonal_seeds(niche_key, month)))
 
     # 1. Signals (each source fails soft on its own)
     seed_scores = trends.trend_scores(seeds)

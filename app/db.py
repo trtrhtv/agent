@@ -52,6 +52,16 @@ def set_opportunity_status(opportunity_id: str, status: str) -> None:
     ).execute()
 
 
+def create_opportunity(keyword: str, niche: str, source: str = "bundle",
+                       status: str = "approved") -> dict[str, Any]:
+    res = (
+        client().table("opportunities")
+        .insert({"keyword": keyword, "niche": niche, "source": source, "status": status})
+        .execute()
+    )
+    return res.data[0]
+
+
 # --- product_jobs ---
 
 def get_job_for_opportunity(opportunity_id: str) -> dict[str, Any] | None:

@@ -153,6 +153,125 @@ def _run_upload(job_id: str) -> None:
         notify.report_error("upload", exc)
 
 
+# --- active-loop callbacks (brain proposals) ---
+
+def _handle_price_drop(job_id: str, callback_id: str) -> None:
+    job = db.get_job(job_id)
+    if job is None or job["status"] != "uploaded" or not job.get("gumroad_product_id"):
+        notify.answer_callback(callback_id, "המוצר כבר לא באוויר")
+        return
+    from app.uploader import set_price
+
+    old_price = float(job.get("suggested_price_usd") or 12)
+    new_price = max(7.0, round(old_price * 0.75, 2))
+    set_price(job["gumroad_product_id"], new_price)
+    db.update_job(job_id, {"suggested_price_usd": new_price})
+    db.log_event("product_job", job_id, "price_dropped", "uploaded",
+                 {"from": old_price, "to": new_price})
+    notify.answer_callback(callback_id, f"💸 המחיר ירד ל-${new_price}")
+    notify.send_message(
+        f"💸 ניסוי מחיר: <b>{job.get('title', '')[:60]}</b> — ${old_price} → ${new_price}"
+    )
+
+
+def _handle_v2(job_id: str, callback_id: str, background: BackgroundTasks) -> None:
+    job = db.get_job(job_id)
+    if job is None:
+        notify.answer_callback(callback_id, "לא נמצאה המשימה")
+        return
+    # Pull the post-mortem's concrete improvements for this exact product
+    improvements: list[str] = []
+    try:
+        res = (
+            db.client().table("insights")
+            .select("evidence").eq("kind", "post_mortem")
+            .eq("evidence->>job_id", job_id).limit(1).execute()
+        )
+        if res.data:
+            improvements = ((res.data[0].get("evidence") or {}).get("analysis") or {}).get(
+                "improvements") or []
+    except Exception:  # noqa: BLE001 — v2 works without the hints too
+        pass
+
+    new_job = db.create_job(job["opportunity_id"])
+    db.update_job(new_job["id"], {"spec": {
+        "sheets": (job.get("spec") or {}).get("sheets") or [],
+        "improvements": improvements,
+    }})
+    db.log_event("product_job", new_job["id"], "pending_generation",
+                 meta={"v2_of": job_id, "improvements": improvements[:5]})
+    background.add_task(_run_generation, new_job["id"])
+    notify.answer_callback(callback_id, "🔁 גרסה משופרת נכנסה לייצור")
+
+
+def _handle_retire(job_id: str, callback_id: str) -> None:
+    job = db.get_job(job_id)
+    if job is None or job["status"] != "uploaded" or not job.get("gumroad_product_id"):
+        notify.answer_callback(callback_id, "המוצר כבר לא באוויר")
+        return
+    from app.uploader import disable_product
+
+    disable_product(job["gumroad_product_id"])
+    db.update_job(job_id, {"status": "retired"})
+    db.log_event("product_job", job_id, "retired", "uploaded")
+    notify.answer_callback(callback_id, "🗑 הוסר מהחנות")
+
+
+def _handle_bundle(niche: str, callback_id: str, background: BackgroundTasks) -> None:
+    from app import brain
+
+    sellers = [
+        r for r in brain.products_with_outcomes()
+        if r["total_sales"] > 0 and ((r.get("opportunities") or {}).get("niche")) == niche
+    ]
+    if len(sellers) < 3:
+        notify.answer_callback(callback_id, "אין מספיק מוצרים מוכרים לבאנדל")
+        return
+    top = sorted(sellers, key=lambda r: r["total_revenue"], reverse=True)[:3]
+    opp = db.create_opportunity(
+        keyword=f"{niche} bundle {len(top)} templates", niche=niche, source="bundle"
+    )
+    notify.answer_callback(callback_id, "📦 בונה את הבאנדל...")
+
+    def _build() -> None:
+        try:
+            from app.bundles import create_bundle
+
+            create_bundle(niche, top, opp["id"])
+        except Exception as exc:  # noqa: BLE001
+            notify.report_error("bundle", exc)
+
+    background.add_task(_build)
+
+
+# --- /status command ---
+
+def _handle_status_command() -> None:
+    import datetime as dt
+
+    today = dt.date.today().isoformat()
+    opps = db.opportunities_for_date(today)
+    jobs = db.client().table("product_jobs").select("status").execute().data or []
+    by_status: dict[str, int] = {}
+    for j in jobs:
+        by_status[j["status"]] = by_status.get(j["status"], 0) + 1
+    failures = (
+        db.client().table("events").select("created_at, meta")
+        .eq("to_status", "failed").order("created_at", desc=True).limit(3)
+        .execute().data or []
+    )
+    lines = [
+        "📟 <b>סטטוס TrendMill</b>",
+        f"🔎 הזדמנויות היום: {len(opps)}",
+        "📦 מוצרים: " + (", ".join(f"{k}: {v}" for k, v in sorted(by_status.items())) or "אין עדיין"),
+    ]
+    if failures:
+        lines.append("⚠️ כשלונות אחרונים:")
+        lines += [f"   • {f['created_at'][:16]} — {str((f.get('meta') or {}).get('error', ''))[:80]}"
+                  for f in failures]
+    notify.send_message("\n".join(lines))
+
+
 @app.post("/telegram/webhook")
 async def telegram_webhook(
     request: Request,
@@ -164,7 +283,16 @@ async def telegram_webhook(
 
     callback = update.get("callback_query")
     if not callback:
-        return {"ok": True}  # ignore plain messages for now
+        # Owner text commands
+        message = update.get("message") or {}
+        text = str(message.get("text") or "").strip()
+        chat_id = str((message.get("chat") or {}).get("id") or "")
+        if text == "/status" and chat_id == os.environ.get("TELEGRAM_OWNER_CHAT_ID", ""):
+            try:
+                _handle_status_command()
+            except Exception as exc:  # noqa: BLE001
+                notify.report_error("status", exc)
+        return {"ok": True}
 
     callback_id = callback["id"]
     data = callback.get("data") or ""
@@ -177,6 +305,14 @@ async def telegram_webhook(
             _handle_skip(entity_id, callback_id)
         elif action in ("approve", "regen", "reject"):
             _handle_job_action(action, entity_id, callback_id, background)
+        elif action == "pdrop":
+            _handle_price_drop(entity_id, callback_id)
+        elif action == "v2":
+            _handle_v2(entity_id, callback_id, background)
+        elif action == "retire":
+            _handle_retire(entity_id, callback_id)
+        elif action == "bundle":
+            _handle_bundle(entity_id, callback_id, background)
         else:
             notify.answer_callback(callback_id, "פעולה לא מוכרת")
     except Exception as exc:  # noqa: BLE001 — fail soft, report loud

@@ -135,6 +135,9 @@ def run() -> None:
 
     # Module 6: with fresh outcome data in place, run the learning brain —
     # signal calibration + causal post-mortems + distilled lessons.
-    from app import brain
+    from app import brain, scout
 
     brain.run_weekly()
+
+    # Module 8: scout new niches based on what the operation now knows.
+    scout.run()

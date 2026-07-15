@@ -166,3 +166,42 @@ def test_server_routes():
 
     paths = {r.path for r in app.routes}
     assert {"/health", "/telegram/webhook"} <= paths
+
+
+def test_quality_structural_checks(tmp_path):
+    from app.quality import structural_issues
+
+    good_spec = {
+        "sheets": [
+            {"rows": [["a", "=B4"]] * 9, "totals_row": ["T", "=SUM(B4:B12)"]},
+            {"rows": [["x", 1]] * 8},
+        ],
+        "how_to_use": ["1", "2", "3", "4", "5"],
+    }
+    good_copy = {"description": "d" * 400}
+    f = tmp_path / "p.xlsx"
+    f.write_bytes(b"0" * 5000)
+    assert structural_issues(good_spec, good_copy, str(f)) == []
+
+    bad = structural_issues({"sheets": [{"rows": [["a"]]}], "how_to_use": ["1"]},
+                            {"description": "short"}, str(tmp_path / "missing.xlsx"))
+    assert len(bad) >= 4  # sheets, rows, formulas, steps, description, file
+
+
+def test_extra_niches_env():
+    import json
+
+    import pytest
+
+    from app.config import active_niches
+
+    os.environ["TRENDMILL_EXTRA_NICHES"] = json.dumps({
+        "hebrew_il": {"seeds": ["s"], "relevance_terms": ["t"]}
+    })
+    niches = active_niches()
+    assert "hebrew_il" in niches and niches["hebrew_il"]["label"] == "hebrew_il"
+
+    os.environ["TRENDMILL_EXTRA_NICHES"] = json.dumps({"bad": {"seeds": []}})
+    with pytest.raises(RuntimeError):
+        active_niches()
+    os.environ.pop("TRENDMILL_EXTRA_NICHES")

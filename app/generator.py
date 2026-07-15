@@ -21,7 +21,7 @@ import os
 import re
 from typing import Any
 
-from app import brain, db, notify
+from app import brain, db, notify, quality
 from app.config import GENERATION_MODEL, OUTPUT_DIR
 from app.llm import chat_json
 from app.scanner import competitors
@@ -133,16 +133,24 @@ def _safe_filename(keyword: str, job_id: str) -> str:
     return f"{stem}-{job_id[:8]}.xlsx"
 
 
-def _send_approval_message(job_id: str, keyword: str, copy: dict, spec: dict, file_path: str) -> None:
+def _send_approval_message(job_id: str, keyword: str, copy: dict, spec: dict, file_path: str,
+                           score: int | None = None, warnings: list[str] | None = None) -> None:
     sheet_lines = "\n".join(
         f"   • {html.escape(str(s.get('name', '?')))} — {html.escape(str(s.get('description', ''))[:80])}"
         for s in spec.get("sheets", [])
     )
+    quality_line = f"🎯 ציון איכות: {score}/10\n" if score is not None else ""
+    warning_block = ""
+    if warnings:
+        joined = "\n".join(f"   ⚠️ {html.escape(w)}" for w in warnings[:4])
+        warning_block = f"\n<b>אזהרות איכות (עבר ניסיון תיקון):</b>\n{joined}\n"
     caption = (
         f"🆕 <b>מוצר מוכן לאישור</b>\n\n"
         f"<b>{html.escape(copy['title'])}</b>\n"
         f"💵 מחיר מוצע: ${copy['price_usd']}\n"
-        f"🔎 מילת מפתח: {html.escape(keyword)}\n\n"
+        f"{quality_line}"
+        f"🔎 מילת מפתח: {html.escape(keyword)}\n"
+        f"{warning_block}\n"
         f"📑 גיליונות:\n{sheet_lines}\n\n"
         f"🏷 תגיות: {html.escape(', '.join(copy['tags']))}"
     )
@@ -200,21 +208,54 @@ def generate_product(job_id: str) -> None:
             "product is clearly more complete.\n"
         )
 
-    # LLM call #1 — spreadsheet spec (the only place the strong model is used)
-    spec = _validate_spec(
-        chat_json(
-            [{"role": "user", "content": SPEC_PROMPT.format(
-                keyword=keyword, rationale=rationale, vary_clause=vary_clause,
-                lessons_clause=lessons_clause, competitors_clause=competitors_clause)}],
-            model=GENERATION_MODEL,
-            max_tokens=8000,
-        )
-    )
-
-    # Build the workbook + a themed cover image (conversion asset)
+    # Generate -> quality gate -> (one automatic fix attempt if it fails)
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     file_path = os.path.join(OUTPUT_DIR, _safe_filename(keyword, job_id))
-    build_xlsx(spec, file_path)
+    quality_feedback = ""
+    spec: dict = {}
+    copy: dict = {}
+    score: int | None = None
+    issues: list[str] = []
+    passed = False
+
+    for attempt in (1, 2):
+        # LLM call #1 — spreadsheet spec (the only place the strong model is used)
+        spec = _validate_spec(
+            chat_json(
+                [{"role": "user", "content": SPEC_PROMPT.format(
+                    keyword=keyword, rationale=rationale,
+                    vary_clause=vary_clause + quality_feedback,
+                    lessons_clause=lessons_clause, competitors_clause=competitors_clause)}],
+                model=GENERATION_MODEL,
+                max_tokens=8000,
+            )
+        )
+        build_xlsx(spec, file_path)
+
+        # LLM call #2 — listing copy on the cheap model
+        raw_copy = chat_json(
+            [{"role": "user", "content": COPY_PROMPT.format(
+                keyword=keyword,
+                product_name=spec.get("product_name", keyword),
+                sheet_names=json.dumps([s.get("name") for s in spec["sheets"]]),
+                competitors_clause=competitors_clause,
+            )}],
+            max_tokens=2000,
+        )
+        copy = _finalize_copy(raw_copy, keyword)
+
+        # Module 7 — quality gate
+        score, issues, passed = quality.assess(spec, copy, file_path)
+        if passed:
+            break
+        log.info("job %s attempt %d failed quality gate (score=%s): %s",
+                 job_id, attempt, score, issues)
+        quality_feedback = (
+            "\nA strict quality review REJECTED the previous attempt "
+            f"(score {score}/10) for these reasons: {json.dumps(issues)}. "
+            "Fix every one of them.\n"
+        )
+
     cover_path: str | None = None
     try:
         from app.cover import render_cover
@@ -222,18 +263,6 @@ def generate_product(job_id: str) -> None:
         cover_path = render_cover(spec, file_path.replace(".xlsx", ".png"))
     except Exception as exc:  # noqa: BLE001 — a cover is never load-bearing
         log.warning("cover render failed: %s", exc)
-
-    # LLM call #2 — listing copy on the cheap model
-    raw_copy = chat_json(
-        [{"role": "user", "content": COPY_PROMPT.format(
-            keyword=keyword,
-            product_name=spec.get("product_name", keyword),
-            sheet_names=json.dumps([s.get("name") for s in spec["sheets"]]),
-            competitors_clause=competitors_clause,
-        )}],
-        max_tokens=2000,
-    )
-    copy = _finalize_copy(raw_copy, keyword)
 
     db.update_job(job_id, {
         "title": copy["title"],
@@ -244,12 +273,14 @@ def generate_product(job_id: str) -> None:
         "file_path": file_path,
         "status": "pending_approval",
     })
-    db.log_event("product_job", job_id, "pending_approval", job["status"])
+    db.log_event("product_job", job_id, "pending_approval", job["status"],
+                 {"quality_score": score, "quality_passed": passed})
 
     if cover_path:
         try:
             notify.send_photo(cover_path, caption=f"🖼 קאבר: {html.escape(copy['title'][:80])}")
         except Exception as exc:  # noqa: BLE001
             log.warning("cover send failed: %s", exc)
-    _send_approval_message(job_id, keyword, copy, spec, file_path)
-    log.info("job %s -> pending_approval (%s)", job_id, file_path)
+    _send_approval_message(job_id, keyword, copy, spec, file_path,
+                           score=score, warnings=None if passed else issues)
+    log.info("job %s -> pending_approval (quality=%s, passed=%s)", job_id, score, passed)

@@ -108,13 +108,38 @@ def seasonal_seeds(niche_key: str, month: int) -> list[str]:
     return list(dict.fromkeys(table.get(month, []) + table.get(next_month, [])))
 
 
+def _extra_niches() -> dict[str, dict]:
+    """Niches added WITHOUT a code change: TRENDMILL_EXTRA_NICHES holds a JSON
+    dict of niche definitions (the niche scout proposes ready-to-paste blocks).
+    Malformed JSON fails loudly — a silent typo must not drop a product line."""
+    raw = os.environ.get("TRENDMILL_EXTRA_NICHES", "").strip()
+    if not raw:
+        return {}
+    import json
+
+    extra = json.loads(raw)
+    if not isinstance(extra, dict):
+        raise RuntimeError("TRENDMILL_EXTRA_NICHES must be a JSON object")
+    for key, cfg in extra.items():
+        if not isinstance(cfg, dict) or not cfg.get("seeds") or not cfg.get("relevance_terms"):
+            raise RuntimeError(f"Extra niche {key!r} needs 'seeds' and 'relevance_terms'")
+        cfg.setdefault("label", key)
+        cfg.setdefault("audience", "online buyers")
+    return extra
+
+
+def all_niches() -> dict[str, dict]:
+    return {**NICHES, **_extra_niches()}
+
+
 def active_niches() -> dict[str, dict]:
+    catalog = all_niches()
     raw = os.environ.get("TRENDMILL_NICHES", "")
-    keys = [k.strip() for k in raw.split(",") if k.strip()] or list(NICHES)
-    unknown = [k for k in keys if k not in NICHES]
+    keys = [k.strip() for k in raw.split(",") if k.strip()] or list(catalog)
+    unknown = [k for k in keys if k not in catalog]
     if unknown:
         raise RuntimeError(f"Unknown niches in TRENDMILL_NICHES: {unknown}")
-    return {k: NICHES[k] for k in keys}
+    return {k: catalog[k] for k in keys}
 
 # --- Scan tuning ---
 MAX_COMPETITION_CHECKS = 25   # cap Etsy result-count scrapes per run (politeness)

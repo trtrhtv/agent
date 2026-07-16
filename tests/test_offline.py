@@ -205,3 +205,52 @@ def test_extra_niches_env():
     with pytest.raises(RuntimeError):
         active_niches()
     os.environ.pop("TRENDMILL_EXTRA_NICHES")
+
+
+def test_foresight_seasonal_profile():
+    import pandas as pd
+
+    from app.scanner.foresight import seasonal_profile
+
+    # 3+ calendar years, ramp weeks 12-14, peak weeks 15-20, quiet otherwise
+    idx = pd.date_range("2022-01-03", periods=170, freq="W-MON")
+    values = []
+    for ts in idx:
+        w = ts.isocalendar().week
+        values.append(80 if 15 <= w <= 20 else 40 if 12 <= w <= 14 else 20)
+    profile = seasonal_profile(pd.Series(values, index=idx))
+    assert profile is not None
+    assert profile["peak_week"] == 15 or 15 <= profile["peak_week"] <= 20
+    assert profile["rise_week"] == 12          # caught the ramp start
+    assert profile["strength"] >= 1.5
+
+    # Guard: flat series has no seasonality
+    flat = pd.Series([30] * 170, index=idx)
+    assert seasonal_profile(flat) is None
+
+    # Guard: too little history
+    short = pd.Series(values[:40], index=idx[:40])
+    assert seasonal_profile(short) is None
+
+
+def test_foresight_lead_lag():
+    import numpy as np
+    import pandas as pd
+
+    from app.scanner.foresight import lead_lag
+
+    rng = np.random.default_rng(42)
+    idx = pd.date_range("2021-01-04", periods=200, freq="W-MON")
+    driver = 50 + 20 * np.sin(np.arange(200) / 5) + rng.normal(0, 1.5, 200)
+    lag = 3
+    follower = np.roll(driver, lag) + rng.normal(0, 1.0, 200)
+
+    link = lead_lag(pd.Series(driver, index=idx), pd.Series(follower, index=idx))
+    assert link is not None
+    assert link["lag_weeks"] == lag            # recovered the true 3-week lag
+    assert link["correlation"] >= 0.45
+
+    # Guard: pure noise pair must not produce a link
+    noise_a = pd.Series(50 + rng.normal(0, 5, 200), index=idx)
+    noise_b = pd.Series(50 + rng.normal(0, 5, 200), index=idx)
+    assert lead_lag(noise_a, noise_b) is None

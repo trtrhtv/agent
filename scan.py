@@ -28,7 +28,7 @@ from app.config import (
     seasonal_seeds,
 )
 from app.llm import chat_json
-from app.scanner import etsy, trends
+from app.scanner import etsy, foresight, trends
 from app.scanner.scoring import Candidate, build_candidates, finalize_scores
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -95,14 +95,30 @@ def scan_niche(niche_key: str, niche: dict, today: str) -> None:
                  niche_key, today, len(existing))
         return
 
-    month = dt.date.fromisoformat(today).month
-    seeds: list[str] = list(dict.fromkeys(niche["seeds"] + seasonal_seeds(niche_key, month)))
+    today_date = dt.date.fromisoformat(today)
+    month, iso_week = today_date.month, today_date.isocalendar().week
+
+    # Foresight (Module 9): keywords whose historical seasonal rise starts soon
+    # get scanned BEFORE the demand shows up in today's numbers.
+    predicted = foresight.upcoming_seasonal_keywords(niche_key, iso_week)
+    if predicted:
+        log.info("[%s] foresight seasonal seeds: %s", niche_key, predicted)
+    seeds: list[str] = list(dict.fromkeys(
+        niche["seeds"] + seasonal_seeds(niche_key, month) + predicted
+    ))
 
     # 1. Signals (each source fails soft on its own)
     seed_scores = trends.trend_scores(seeds)
     log.info("[%s] Google Trends scores: %d/%d seeds", niche_key, len(seed_scores), len(seeds))
 
     suggestions_by_seed = {seed: etsy.autocomplete(seed) for seed in seeds}
+
+    # Foresight: when a known leader spikes TODAY, chase its followers now —
+    # they enter as high-priority suggestions and go through normal scoring.
+    followers = foresight.followers_of_spiking_leaders(niche_key, seed_scores)
+    if followers:
+        log.info("[%s] foresight followers of spiking leaders: %s", niche_key, followers)
+        suggestions_by_seed["__foresight__"] = followers
     log.info("[%s] Etsy suggestions: %d", niche_key,
              sum(len(v) for v in suggestions_by_seed.values()))
 

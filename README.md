@@ -119,5 +119,12 @@ python scripts/set_webhook.py https://<web-service>.up.railway.app
   memory injected into the daily re-rank and into product generation.
   Competitor snapshots (`app/scanner/competitors.py`, Etsy JSON-LD) are taken
   at generation time so every product is designed against what already ranks.
+- **Foresight (`app/scanner/foresight.py` + migration 006)** — monthly cron
+  mines 5 years of Google Trends history per niche: data-driven seasonal
+  profiles (rise/peak week, strength >= 1.5x, >= 2 years of support) and
+  lead-lag links computed on week-over-week changes (never raw levels; lag
+  1-12w, corr >= 0.45 over >= 80 weeks). The daily scanner then scans
+  seasonal keywords up to 4 weeks BEFORE their historical rise and chases
+  followers the moment a known leader spikes.
 
 Owner-facing roadmap, deploy checklist, and platform comparison: [docs/ROADMAP.md](docs/ROADMAP.md).

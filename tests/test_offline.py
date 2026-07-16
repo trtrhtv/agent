@@ -254,3 +254,23 @@ def test_foresight_lead_lag():
     noise_a = pd.Series(50 + rng.normal(0, 5, 200), index=idx)
     noise_b = pd.Series(50 + rng.normal(0, 5, 200), index=idx)
     assert lead_lag(noise_a, noise_b) is None
+
+
+def test_gallery_render(tmp_path):
+    from PIL import Image
+
+    from app.cover import render_gallery
+
+    spec = {"product_name": "P", "tagline": "t",
+            "theme": {"primary": "1F4E5F", "secondary": "EAF2F4", "accent": "F4A259"},
+            "sheets": [
+                {"name": "Budget", "description": "d",
+                 "columns": [{"header": "Item"}, {"header": "Cost"}],
+                 "rows": [["Venue", 5000], ["Food", "=B4*2"]]},
+                {"name": "Guests", "columns": [{"header": "Name"}], "rows": [["A"]]},
+            ]}
+    base = str(tmp_path / "p.png")
+    paths = render_gallery(spec, base)
+    assert len(paths) == 3  # cover + 2 sheet previews
+    for p in paths:
+        assert Image.open(p).size == (1280, 720)

@@ -55,13 +55,17 @@ Reply with ONLY valid JSON matching exactly this schema:
   "how_to_use": ["step 1 ...", "step 2 ..."]
 }}
 
-Requirements:
-- 2 to 4 data sheets that together fully solve the buyer's job-to-be-done.
+Requirements (this is the quality bar of BEST-SELLING templates — meet it):
+- 2 to 4 data sheets that together fully solve ONE clear buyer problem.
+- Beginner friendly: clean, easy to follow, self-explanatory column names.
+  Top sellers win with SIMPLE, reliable formulas (SUM/AVERAGE/IF) that solve a
+  clear problem — never clever-but-fragile complexity.
 - 8-15 realistic, helpful sample rows per sheet (real-looking data, not "Item 1").
 - Real working Excel formulas as strings starting with "=". Data starts at row 4
   (rows 1-3 are title/tagline/header), so a 10-row sheet spans rows 4-13 —
   reference those rows in formulas (e.g. "=SUM(B4:B13)").
-- Cohesive professional color theme appropriate to the niche.
+- Premium feel: cohesive color theme appropriate to the niche, consistent
+  headers, zero clutter — buyers describe winners as "gorgeous aesthetic".
 - 5-8 concise how_to_use steps; one step MUST explain importing into Google
   Sheets (File > Import > Upload) so the product serves both Excel and Sheets buyers.
 - All content in English (US/global buyers)."""
@@ -256,13 +260,13 @@ def generate_product(job_id: str) -> None:
             "Fix every one of them.\n"
         )
 
-    cover_path: str | None = None
+    gallery: list[str] = []
     try:
-        from app.cover import render_cover
+        from app.cover import render_gallery
 
-        cover_path = render_cover(spec, file_path.replace(".xlsx", ".png"))
-    except Exception as exc:  # noqa: BLE001 — a cover is never load-bearing
-        log.warning("cover render failed: %s", exc)
+        gallery = render_gallery(spec, file_path.replace(".xlsx", ".png"))
+    except Exception as exc:  # noqa: BLE001 — images are never load-bearing
+        log.warning("gallery render failed: %s", exc)
 
     db.update_job(job_id, {
         "title": copy["title"],
@@ -276,11 +280,12 @@ def generate_product(job_id: str) -> None:
     db.log_event("product_job", job_id, "pending_approval", job["status"],
                  {"quality_score": score, "quality_passed": passed})
 
-    if cover_path:
+    for i, image_path in enumerate(gallery):
         try:
-            notify.send_photo(cover_path, caption=f"🖼 קאבר: {html.escape(copy['title'][:80])}")
+            label = "🖼 קאבר" if i == 0 else f"🖼 תצוגה {i}"
+            notify.send_photo(image_path, caption=f"{label}: {html.escape(copy['title'][:70])}")
         except Exception as exc:  # noqa: BLE001
-            log.warning("cover send failed: %s", exc)
+            log.warning("gallery send failed: %s", exc)
     _send_approval_message(job_id, keyword, copy, spec, file_path,
                            score=score, warnings=None if passed else issues)
     log.info("job %s -> pending_approval (quality=%s, passed=%s)", job_id, score, passed)

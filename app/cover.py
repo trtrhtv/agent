@@ -109,3 +109,60 @@ def render_cover(spec: dict, out_path: str) -> str:
 
     img.save(out_path, "PNG")
     return out_path
+
+
+def render_sheet_preview(sheet_spec: dict, theme: dict, out_path: str) -> str:
+    """A dedicated preview image for ONE sheet — top listings show every tab,
+    so each data sheet gets its own gallery image."""
+    primary = _rgb((theme or {}).get("primary", "1F4E5F"))
+    secondary = _rgb((theme or {}).get("secondary", "EAF2F4"))
+    accent = _rgb((theme or {}).get("accent", "F4A259"))
+
+    img = Image.new("RGB", (WIDTH, HEIGHT), (250, 250, 250))
+    draw = ImageDraw.Draw(img)
+    draw.rectangle([0, 0, WIDTH, 64], fill=primary)
+    draw.rectangle([0, 64, WIDTH, 70], fill=accent)
+    draw.text((40, 14), str(sheet_spec.get("name", "Sheet"))[:60], font=_font(34),
+              fill=(255, 255, 255))
+    if sheet_spec.get("description"):
+        draw.text((40, 86), str(sheet_spec["description"])[:110], font=_font(22),
+                  fill=(90, 90, 90))
+
+    columns = sheet_spec.get("columns") or []
+    headers = [str(c.get("header", ""))[:16] for c in columns[:5]] or ["Item"]
+    rows_data = sheet_spec.get("rows") or []
+    table_top, table_left, cell_h = 140, 40, 56
+    cell_w = min(280, (WIDTH - 2 * table_left) // len(headers))
+    header_font, cell_font = _font(24), _font(22)
+
+    for i, header in enumerate(headers):
+        x0 = table_left + i * cell_w
+        draw.rectangle([x0, table_top, x0 + cell_w - 4, table_top + cell_h], fill=primary)
+        draw.text((x0 + 14, table_top + 15), header, font=header_font, fill=(255, 255, 255))
+    for r in range(min(8, max(4, len(rows_data)))):
+        y0 = table_top + cell_h + r * cell_h
+        row = rows_data[r] if r < len(rows_data) and isinstance(rows_data[r], list) else []
+        for i in range(len(headers)):
+            x0 = table_left + i * cell_w
+            draw.rectangle([x0, y0, x0 + cell_w - 4, y0 + cell_h],
+                           fill=(255, 255, 255) if r % 2 == 0 else secondary,
+                           outline=(220, 220, 220))
+            value = row[i] if i < len(row) else ""
+            text = "ƒx auto" if isinstance(value, str) and value.startswith("=") else str(value)[:18]
+            draw.text((x0 + 14, y0 + 15), text, font=cell_font, fill=(70, 70, 70))
+
+    img.save(out_path, "PNG")
+    return out_path
+
+
+def render_gallery(spec: dict, base_path: str, max_sheets: int = 3) -> list[str]:
+    """Cover + one preview per data sheet (capped). base_path ends with .png."""
+    paths = [render_cover(spec, base_path)]
+    theme = spec.get("theme") or {}
+    for i, sheet in enumerate((spec.get("sheets") or [])[:max_sheets]):
+        out = base_path.replace(".png", f"-sheet{i + 1}.png")
+        try:
+            paths.append(render_sheet_preview(sheet, theme, out))
+        except Exception as exc:  # noqa: BLE001 — gallery is additive, never blocking
+            log.warning("sheet preview %d failed: %s", i + 1, exc)
+    return paths

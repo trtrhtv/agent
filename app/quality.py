@@ -70,9 +70,13 @@ LISTING:
 title: {title}
 description: {description}
 
-Grade harshly. Generic sample data ("Item 1", "Example"), formulas that
-reference wrong rows, sheets that don't solve the buyer's actual job, or
-listing copy that overpromises — all cost points.
+Grade harshly against the bar of BEST-SELLING marketplace templates. Buyers of
+winners say: "clean cut, easy to follow, beginner friendly", "gorgeous
+aesthetic", "worth the money", "saved me hours vs building it myself".
+Cost points for: generic sample data ("Item 1", "Example"), formulas that
+reference wrong rows, clever-but-fragile complexity where a simple formula
+would do, sheets that don't solve the buyer's actual job, unclear column
+names a beginner would struggle with, or listing copy that overpromises.
 
 Reply with ONLY JSON:
 {{"score": 1-10, "issues": ["specific fixable problem", ...], "would_buy": true/false}}"""

@@ -55,9 +55,9 @@ scripts/set_webhook.py         one-time Telegram webhook registration
    The last line prints `VERDICT: STRATEGY_A` (API works) or
    `VERDICT: STRATEGY_B` (Playwright UI automation needed).
 
-## Railway deployment (single repo, three services)
+## Railway deployment (single repo, four services)
 
-Create one Railway project and add three services all pointing at this repo:
+Create one Railway project and add four services all pointing at this repo:
 
 | Service    | Type | Start command                                        | Cron            |
 |------------|------|------------------------------------------------------|-----------------|

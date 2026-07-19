@@ -29,6 +29,9 @@ from openpyxl.worksheet.worksheet import Worksheet
 
 DEFAULT_THEME = {"primary": "1F4E5F", "secondary": "EAF2F4", "accent": "F4A259"}
 
+# The theme's "font" voice maps to fonts buyers actually have in Excel/Sheets.
+EXCEL_FONTS = {"serif": "Georgia", "sans": "Calibri", "mono": "Consolas"}
+
 NUMBER_FORMATS = {
     "currency": '"$"#,##0.00',
     "percent": "0.0%",
@@ -53,15 +56,17 @@ def _sheet_title(name: str, index: int) -> str:
 def _write_data_sheet(ws: Worksheet, sheet_spec: dict, theme: dict) -> None:
     columns = sheet_spec.get("columns") or [{"header": "Item"}]
     n_cols = len(columns)
+    face = EXCEL_FONTS.get(str(theme.get("font", "")).lower(), "Calibri")
     primary = PatternFill("solid", fgColor=_hex(theme["primary"]))
     secondary = PatternFill("solid", fgColor=_hex(theme["secondary"]))
-    white_bold = Font(color="FFFFFFFF", bold=True)
+    white_bold = Font(name=face, color="FFFFFFFF", bold=True)
     thin_accent = Side(style="medium", color=_hex(theme["accent"]))
+    ws.sheet_properties.tabColor = _hex(theme["accent"])[2:]
 
     # Title block
     ws.merge_cells(start_row=TITLE_ROW, start_column=1, end_row=TITLE_ROW, end_column=n_cols)
     title_cell = ws.cell(row=TITLE_ROW, column=1, value=str(sheet_spec.get("title") or ws.title))
-    title_cell.font = Font(color="FFFFFFFF", bold=True, size=14)
+    title_cell.font = Font(name=face, color="FFFFFFFF", bold=True, size=15)
     title_cell.alignment = Alignment(vertical="center")
     for col in range(1, n_cols + 1):
         ws.cell(row=TITLE_ROW, column=col).fill = primary
@@ -70,7 +75,7 @@ def _write_data_sheet(ws: Worksheet, sheet_spec: dict, theme: dict) -> None:
     if sheet_spec.get("description"):
         ws.merge_cells(start_row=TAGLINE_ROW, start_column=1, end_row=TAGLINE_ROW, end_column=n_cols)
         tagline = ws.cell(row=TAGLINE_ROW, column=1, value=str(sheet_spec["description"]))
-        tagline.font = Font(italic=True, size=10, color=_hex(theme["primary"]))
+        tagline.font = Font(name=face, italic=True, size=10, color=_hex(theme["primary"]))
 
     # Header row
     formats: list[str | None] = []
@@ -108,17 +113,20 @@ def _write_data_sheet(ws: Worksheet, sheet_spec: dict, theme: dict) -> None:
         for c in range(1, n_cols + 1):
             value = totals[c - 1] if c - 1 < len(totals) else None
             cell = ws.cell(row=r, column=c, value=value)
-            cell.font = Font(bold=True)
+            cell.font = Font(name=face, bold=True, color=_hex(theme["primary"]))
+            cell.fill = secondary
             cell.border = Border(top=thin_accent)
             if formats[c - 1]:
                 cell.number_format = formats[c - 1]
 
 
 def _write_instructions_sheet(ws: Worksheet, spec: dict, theme: dict) -> None:
+    face = EXCEL_FONTS.get(str(theme.get("font", "")).lower(), "Calibri")
+    ws.sheet_properties.tabColor = _hex(theme["primary"])[2:]
     ws.merge_cells("A1:A1")
     ws.column_dimensions["A"].width = 95
     title = ws.cell(row=1, column=1, value=f"How to use: {spec.get('product_name', 'this template')}")
-    title.font = Font(color="FFFFFFFF", bold=True, size=14)
+    title.font = Font(name=face, color="FFFFFFFF", bold=True, size=15)
     title.fill = PatternFill("solid", fgColor=_hex(theme["primary"]))
     ws.row_dimensions[1].height = 26
 

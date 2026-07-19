@@ -42,7 +42,8 @@ Reply with ONLY valid JSON matching exactly this schema:
 {{
   "product_name": "short product name",
   "tagline": "one-line value proposition",
-  "theme": {{"primary": "RRGGBB hex", "secondary": "light RRGGBB hex", "accent": "RRGGBB hex"}},
+  "theme": {{"primary": "RRGGBB hex", "secondary": "light RRGGBB hex", "accent": "RRGGBB hex",
+             "style": "editorial|stat|banner|siderail", "font": "serif|sans|mono"}},
   "sheets": [
     {{
       "name": "sheet name (<=25 chars)",
@@ -66,6 +67,11 @@ Requirements (this is the quality bar of BEST-SELLING templates — meet it):
   reference those rows in formulas (e.g. "=SUM(B4:B13)").
 - Premium feel: cohesive color theme appropriate to the niche, consistent
   headers, zero clutter — buyers describe winners as "gorgeous aesthetic".
+- ART-DIRECT like a human designer, never generic: pick the cover "style" and
+  "font" to match the product's personality (e.g. stat+sans for sports/trading,
+  editorial+serif for civic/professional, banner+serif for seasonal/warm,
+  siderail+sans for students/planners). Avoid cliched palettes (no default
+  blue-on-white, no purple gradients); choose colors with a point of view.
 - 5-8 concise how_to_use steps; one step MUST explain importing into Google
   Sheets (File > Import > Upload) so the product serves both Excel and Sheets buyers.
 - All content in English (US/global buyers)."""

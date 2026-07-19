@@ -50,6 +50,28 @@ NICHES: dict[str, dict] = {
         ],
         "audience": "US/global consumers and small businesses buying ready-made templates",
     },
+    # Sellers' tools — buyers whose purchase MAKES them money pay more, demand
+    # is evergreen, and this audience is exactly phase D's future SaaS market.
+    "seller_tools": {
+        "label": "כלים למוכרים",
+        "seeds": [
+            "etsy seller spreadsheet",
+            "etsy fee calculator",
+            "pricing calculator handmade",
+            "small business bookkeeping spreadsheet",
+            "product cost calculator",
+            "inventory spreadsheet small business",
+            "craft business planner",
+            "profit margin calculator",
+            "reseller inventory tracker",
+            "order tracker small business",
+        ],
+        "relevance_terms": [
+            "spreadsheet", "calculator", "tracker", "template", "excel",
+            "sheet", "bookkeeping", "inventory", "pricing", "planner", "log",
+        ],
+        "audience": "Etsy/handmade/reseller shop owners who track their business in spreadsheets",
+    },
     # Picks-and-shovels for prediction-market / retail traders (see docs/RESEARCH.md):
     # sell tools TO traders instead of trading — zero capital at risk.
     "trader_tools": {

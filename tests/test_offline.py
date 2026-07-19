@@ -271,6 +271,6 @@ def test_gallery_render(tmp_path):
             ]}
     base = str(tmp_path / "p.png")
     paths = render_gallery(spec, base)
-    assert len(paths) == 3  # cover + 2 sheet previews
+    assert len(paths) == 4  # cover + laptop mockup + 2 sheet previews
     for p in paths:
         assert Image.open(p).size == (1280, 720)

@@ -372,9 +372,65 @@ def render_sheet_preview(sheet_spec: dict, spec: dict, out_path: str) -> str:
     return out_path
 
 
+def render_mockup(spec: dict, out_path: str) -> str:
+    """The product on a laptop screen — the highest-converting listing image
+    per top-seller research."""
+    primary, secondary, accent, style, font = _resolve(spec)
+    img = Image.new("RGB", (WIDTH, HEIGHT), _mix(secondary, (255, 255, 255), 0.6))
+    draw = ImageDraw.Draw(img)
+    _dot_grid(draw, _mix(secondary, (255, 255, 255), 0.25), spacing=46, r=2)
+
+    # Laptop: bezel, screen, base
+    sx0, sy0, sx1, sy1 = 300, 52, 980, 492
+    draw.rounded_rectangle([sx0 - 14, sy0 - 14, sx1 + 14, sy1 + 10], radius=18, fill=(38, 40, 44))
+    draw.rectangle([sx0, sy0, sx1, sy1], fill=(255, 255, 255))
+    draw.rounded_rectangle([sx0 - 90, sy1 + 10, sx1 + 90, sy1 + 34], radius=10, fill=(58, 60, 66))
+    draw.rounded_rectangle([(WIDTH - 130) / 2, sy1 + 10, (WIDTH + 130) / 2, sy1 + 20],
+                           radius=5, fill=(38, 40, 44))
+
+    # On-screen: app title bar + the actual first sheet
+    draw.rectangle([sx0, sy0, sx1, sy0 + 44], fill=primary)
+    draw.text((sx0 + 18, sy0 + 9), str(spec.get("product_name", ""))[:48],
+              font=_font(font, "bold", 22), fill=(255, 255, 255))
+    draw.rectangle([sx0, sy0 + 44, sx1, sy0 + 48], fill=_rgb(accent))
+    sheets = spec.get("sheets") or [{}]
+    _mini_table(draw, sheets[0], (sx0 + 24, sy0 + 72), 154, 46,
+                header_fill=primary, header_text=(255, 255, 255),
+                row_a=(255, 255, 255), row_b=secondary,
+                body_text=(75, 75, 75), font_family=font, n_cols=4, n_rows=6,
+                outline=(226, 226, 223))
+    # Sheet tabs strip, like the real app
+    tab_y = sy1 - 34
+    tx = sx0 + 16
+    for i, sheet in enumerate(sheets[:4]):
+        name = str(sheet.get("name", f"Sheet{i+1}"))[:14]
+        tf = _font("sans", "regular", 16)
+        tw = draw.textlength(name, font=tf) + 24
+        fill = _rgb(accent) if i == 0 else (238, 238, 236)
+        draw.rounded_rectangle([tx, tab_y, tx + tw, tab_y + 26], radius=4, fill=fill)
+        draw.text((tx + 12, tab_y + 4), name, font=tf,
+                  fill=(255, 255, 255) if i == 0 else (100, 100, 100))
+        tx += tw + 6
+
+    caption = _spaced("Works in Excel and Google Sheets")
+    cf = _font("mono", "regular", 17)
+    cw = draw.textlength(caption, font=cf)
+    draw.text(((WIDTH - cw) / 2, HEIGHT - 96), caption, font=cf, fill=_mix(primary, secondary, 0.3))
+    tagline = str(spec.get("tagline", ""))[:80]
+    tgf = _font(font, "italic", 24)
+    tw = draw.textlength(tagline, font=tgf)
+    draw.text(((WIDTH - tw) / 2, HEIGHT - 62), tagline, font=tgf, fill=primary)
+    img.save(out_path, "PNG")
+    return out_path
+
+
 def render_gallery(spec: dict, base_path: str, max_sheets: int = 3) -> list[str]:
-    """Cover + one preview per data sheet (capped). base_path ends with .png."""
+    """Cover + laptop mockup + one preview per data sheet (capped)."""
     paths = [render_cover(spec, base_path)]
+    try:
+        paths.append(render_mockup(spec, base_path.replace(".png", "-mockup.png")))
+    except Exception as exc:  # noqa: BLE001
+        log.warning("mockup failed: %s", exc)
     for i, sheet in enumerate((spec.get("sheets") or [])[:max_sheets]):
         out = base_path.replace(".png", f"-sheet{i + 1}.png")
         try:

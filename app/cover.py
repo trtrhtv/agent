@@ -139,22 +139,37 @@ def _style_editorial(img, draw, spec, theme, font_family):
     panel_w = 560
     draw.rectangle([0, 0, WIDTH, HEIGHT], fill=secondary)
     draw.rectangle([0, 0, panel_w, HEIGHT], fill=primary)
-    rule = _mix(primary, (255, 255, 255), 0.12)
-    for y in range(90, HEIGHT, 44):
-        draw.line([(36, y), (panel_w - 36, y)], fill=rule, width=1)
 
     hfont = _font(font_family, "bold", 58)
     y = 74
     for line in _wrap(draw, spec.get("product_name", ""), hfont, panel_w - 100):
-        draw.rectangle([36, y, 36 + draw.textlength(line, font=hfont) + 16, y + 66], fill=primary)
         draw.text((44, y), line, font=hfont, fill=(255, 255, 255))
         y += 70
-    draw.rectangle([44, y + 8, 168, y + 15], fill=_rgb_t(accent))
     tfont = _font(font_family, "italic", 26)
-    y += 40
+    y += 16
     for line in _wrap(draw, spec.get("tagline", ""), tfont, panel_w - 100, 2):
         draw.text((44, y), line, font=tfont, fill=_mix(primary, (255, 255, 255), 0.75))
         y += 34
+
+    # Hero chips: subject-specific when the spec provides them ("hero": {"big",
+    # "small", "ticker"}), sensible truths about the file otherwise.
+    hero = spec.get("hero") or {}
+    big = str(hero.get("big") or f"{len(spec.get('sheets') or [])} SHEETS")
+    small = str(hero.get("small") or "ƒx")
+    ticker = str(hero.get("ticker") or "auto formulas · planned vs actual")
+    y += 28
+    mono_b = _font("mono", "bold", 26)
+    big_w = int(draw.textlength(big, font=mono_b)) + 48
+    small_w = int(draw.textlength(small, font=mono_b)) + 52
+    draw.rounded_rectangle([44, y, 44 + big_w, y + 58], radius=6,
+                           fill=_mix(primary, (255, 255, 255), 0.16))
+    draw.text((68, y + 15), big, font=mono_b, fill=(255, 255, 255))
+    draw.rounded_rectangle([44 + big_w + 10, y, 44 + big_w + 10 + small_w, y + 58],
+                           radius=6, fill=_rgb_t(accent))
+    draw.text((44 + big_w + 36, y + 15), small, font=mono_b, fill=(255, 255, 255))
+    draw.text((44, y + 74), _spaced(ticker[:52]),
+              font=_font("mono", "regular", 15), fill=_mix(primary, (255, 255, 255), 0.5))
+
     draw.text((44, HEIGHT - 56), _spaced("Excel · Google Sheets · Instant"),
               font=_font("mono", "regular", 16), fill=_mix(primary, (255, 255, 255), 0.55))
 
@@ -168,13 +183,21 @@ def _style_editorial(img, draw, spec, theme, font_family):
 def _style_stat(img, draw, spec, theme, font_family):
     primary, secondary, accent = theme
     draw.rectangle([0, 0, WIDTH, HEIGHT], fill=primary)
-    _diag_stripes(draw, _mix(primary, (255, 255, 255), 0.05), (0, HEIGHT // 2, WIDTH, HEIGHT))
+    # Subject vernacular: yard lines with field numbers, not abstract stripes
+    line_c = _mix(primary, (255, 255, 255), 0.10)
+    num_f = _font("mono", "bold", 20)
+    for i, y in enumerate(range(HEIGHT - 40, HEIGHT - 240, -48)):
+        draw.line([(0, y), (WIDTH, y)], fill=line_c, width=2)
+        draw.text((WIDTH - 64, y - 28), f"{(i + 1) * 10}", font=num_f,
+                  fill=_mix(primary, (255, 255, 255), 0.22))
+    # Jersey-number numeral: hollow with a heavier outline
     match = re.search(r"(20\d\d)", str(spec.get("product_name", "")))
     numeral = match.group(1)[-2:] if match else str(spec.get("product_name", "X"))[:1].upper()
     nfont = _font(font_family, "bold", 430)
     nw = draw.textlength(numeral, font=nfont)
-    draw.text((WIDTH - nw - 40, HEIGHT - 500), numeral, font=nfont,
-              fill=_mix(primary, (255, 255, 255), 0.08))
+    draw.text((WIDTH - nw - 60, HEIGHT - 520), numeral, font=nfont,
+              fill=_mix(primary, (255, 255, 255), 0.05),
+              stroke_width=5, stroke_fill=_mix(primary, (255, 255, 255), 0.25))
 
     hfont = _font(font_family, "bold", 62)
     y = 78
@@ -194,39 +217,55 @@ def _style_stat(img, draw, spec, theme, font_family):
                 row_a=_mix(primary, (255, 255, 255), 0.09),
                 row_b=_mix(primary, (255, 255, 255), 0.05),
                 body_text=_mix(primary, (255, 255, 255), 0.85), font_family=font_family)
-    badge = _spaced("Excel + Sheets")
-    bfont = _font("mono", "bold", 17)
-    bw = draw.textlength(badge, font=bfont)
-    draw.rounded_rectangle([WIDTH - bw - 100, HEIGHT - 74, WIDTH - 48, HEIGHT - 34],
-                           radius=6, outline=_rgb_t(accent), width=2)
-    draw.text((WIDTH - bw - 74, HEIGHT - 64), badge, font=bfont, fill=_rgb_t(accent))
+    # Scoreboard chip — mono digits, the sport's own typography
+    chip = str((spec.get("hero") or {}).get("chip")
+               or f"{len(spec.get('sheets') or [])} SHEETS · LIVE ƒx")
+    bfont = _font("mono", "bold", 18)
+    bw = draw.textlength(chip, font=bfont)
+    draw.rectangle([WIDTH - bw - 92, HEIGHT - 78, WIDTH - 44, HEIGHT - 36], fill=_rgb_t(accent))
+    draw.text((WIDTH - bw - 68, HEIGHT - 68), chip, font=bfont, fill=primary)
 
 
 def _style_banner(img, draw, spec, theme, font_family):
     primary, secondary, accent = theme
     draw.rectangle([0, 0, WIDTH, HEIGHT], fill=secondary)
-    _scatter(draw, [_rgb_t(accent), _mix(primary, secondary, 0.5)], (0, 0, WIDTH, 150),
-             seed_text=spec.get("product_name", ""))
-    _scatter(draw, [_mix(primary, secondary, 0.6), _rgb_t(accent)], (0, HEIGHT - 130, WIDTH, HEIGHT),
-             seed_text=spec.get("tagline", "x"))
     for dy in (64, 72):
         draw.line([(WIDTH // 2 - 320, dy), (WIDTH // 2 + 320, dy)], fill=primary, width=2)
 
     hfont = _font(font_family, "bold", 56)
-    y = 108
+    y = 104
     for line in _wrap(draw, spec.get("product_name", ""), hfont, 900):
         lw = draw.textlength(line, font=hfont)
         draw.text(((WIDTH - lw) / 2, y), line, font=hfont, fill=primary)
         y += 66
-    ribbon = _spaced(str(spec.get("tagline", ""))[:52])
-    rfont = _font("mono", "bold", 17)
-    rw = draw.textlength(ribbon, font=rfont)
-    draw.rectangle([(WIDTH - rw) / 2 - 24, y + 10, (WIDTH + rw) / 2 + 24, y + 48], fill=_rgb_t(accent))
-    draw.text(((WIDTH - rw) / 2, y + 20), ribbon, font=rfont, fill=(255, 255, 255))
+
+    # Progress runway derived from the file itself: one tick per row of the
+    # first sheet (a countdown/checklist is what this style sells).
+    sheets_list = spec.get("sheets") or [{}]
+    n_ticks = max(8, min(30, len(sheets_list[0].get("rows") or []) or 22))
+    hero = spec.get("hero") or {}
+    y += 18
+    label = _spaced(str(hero.get("ticker") or f"{n_ticks} steps · fills in as you go"))
+    lfont = _font("mono", "regular", 16)
+    lw = draw.textlength(label, font=lfont)
+    draw.text(((WIDTH - lw) / 2, y), label, font=lfont, fill=_mix(primary, secondary, 0.35))
+    y += 34
+    track_x0, track_x1 = WIDTH // 2 - 330, WIDTH // 2 + 330
+    draw.line([(track_x0, y + 10), (track_x1, y + 10)], fill=_mix(primary, secondary, 0.55), width=3)
+    for i in range(n_ticks):
+        cx = track_x0 + i * (track_x1 - track_x0) // (n_ticks - 1)
+        if i < max(2, n_ticks // 8):  # a head start already filled in
+            draw.ellipse([cx - 8, y + 2, cx + 8, y + 18], fill=_rgb_t(accent))
+        else:
+            draw.ellipse([cx - 6, y + 4, cx + 6, y + 16], outline=primary, width=2,
+                         fill=secondary)
+    star_f = _font(font_family, "bold", 26)
+    draw.text((track_x1 + 16, y - 4), "$", font=star_f, fill=_rgb_t(accent))
+    y += 32
 
     sheets = spec.get("sheets") or [{}]
     table_w = 4 * 168
-    _mini_table(draw, sheets[0], ((WIDTH - table_w) // 2, y + 96), 168, 52,
+    _mini_table(draw, sheets[0], ((WIDTH - table_w) // 2, y + 40), 168, 52,
                 header_fill=primary, header_text=(255, 255, 255),
                 row_a=(255, 255, 255), row_b=_mix(secondary, (255, 255, 255), 0.55),
                 body_text=(80, 70, 60), font_family=font_family, outline=_mix(primary, secondary, 0.75))
@@ -239,13 +278,21 @@ def _style_siderail(img, draw, spec, theme, font_family):
     draw.rectangle([0, 0, WIDTH, HEIGHT], fill=(252, 252, 250))
     _dot_grid(draw, (225, 225, 222))
     draw.rectangle([0, 0, 116, HEIGHT], fill=primary)
+    # Notebook margin line — the page's own vernacular
+    draw.line([(150, 0), (150, HEIGHT)], fill=(224, 130, 120), width=2)
     for i, y in enumerate(range(56, 260, 64)):
         fill = _rgb_t(accent) if i == 0 else _mix(primary, (255, 255, 255), 0.25)
         draw.rectangle([40, y, 76, y + 36], fill=fill)
 
     hfont = _font(font_family, "bold", 58)
     y = 84
+    first = True
     for line in _wrap(draw, spec.get("product_name", ""), hfont, 880):
+        if first:  # highlighter swipe under the opening line
+            lw = draw.textlength(line, font=hfont)
+            draw.rectangle([166, y + 30, 178 + lw, y + 62],
+                           fill=_mix(_rgb_t(accent), (255, 255, 255), 0.45))
+            first = False
         draw.text((170, y), line, font=hfont, fill=primary)
         y += 68
     for line in _wrap(draw, spec.get("tagline", ""), _font(font_family, "italic", 26), 760, 2):

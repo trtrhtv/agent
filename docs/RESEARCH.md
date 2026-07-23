@@ -73,3 +73,57 @@ Deep-research run: 5 search angles, 22 sources fetched, 64 claims extracted,
    with zero trading risk.
 5. **Expectation setting**: median product ≈ $0–low; the machine's edge is
    volume at near-zero marginal cost + the weekly learning loop killing losers.
+
+## Market survey #2 (2026-07): What level of spreadsheet product actually sells?
+
+Three parallel research passes (Etsy best-sellers, Gumroad/creator market,
+buyer-review analysis). Full sources in the session transcript; key verified
+facts below.
+
+### Verified market facts
+- **Volume champions are SIMPLE.** SimplyOrganizedPro: ~100k sales in ~2 years
+  from 24 products priced $1–2.50; its best-seller (8.6k+ sales) is a ONE-tab
+  monthly budget dashboard + PDF instructions + video walkthrough.
+  CreativeJamCo: 390k lifetime sales; its $4.43 "budget by paycheck" listing
+  has ~12k reviews. Pretty Arrow (Emily McDermott): ~$280k cumulative selling
+  $5–25 budget sheets; her $19 flagship ≈ 2.3k reviews.
+- **"Complex" on Etsy = 14–28 formula-driven tabs with dashboards** (bill
+  calendar, debt snowball, net worth) at $15–30 — NOT software. No scripts or
+  macros appear anywhere near the top of the category. Same product concept
+  sells simultaneously at $4.43 (12k reviews) and $19.23 (2.3k reviews):
+  positioning sets price, not feature count.
+- **Standard packaging at EVERY tier (incl. $1 products):** Google Sheets +
+  Excel versions, PDF/README setup guide, video tutorial, 2+ color themes,
+  pre-filled sample data, colored input cells. These are table stakes.
+- **Buyers pay for confidence, not complexity.** 5-star language: "easy to
+  use", "clean", "start using it right away", "saved me hours", "lifesaver".
+  Complexity appears in reviews only as a NEGATIVE ("clunky"). Premium prices
+  ($97 Paper+Spark) are justified by trust (CPA credentials), lifetime yearly
+  updates, and anti-SaaS framing ("cheaper than QuickBooks forever") — never
+  by engineering.
+- **Distribution >> product level (~10x more explanatory).** Every 6-figure
+  case had an engine: YouTube funnel (Thomas Frank $1M/yr Notion), free-template
+  Twitter funnel (Easlo $239k — figure via Gumroad's own blog), TikTok
+  (Miss Excel $2M/yr, CNBC), AppSumo (Better Sheets: 50% of revenue vs 12%
+  from Gumroad), Pinterest+SEO+ads (ChartSheets, $40k/mo claimed, unverified).
+  Gumroad Discover ≈ no organic discovery (creators report it as negligible;
+  ~44% of Gumroad products reportedly earn $0, median creator <$100 lifetime).
+  Etsy, by contrast, has real marketplace search traffic — McDermott's stated
+  edge: long-tail keywords <2k volume, separate listings per keyword variant,
+  "most marketing energy on listing images."
+
+### Consequences adopted for TrendMill
+1. **Our generation bar is already at/above the selling level** (2–4 sheets,
+   live formulas, sample data, instructions sheet, themed design, Sheets+Excel).
+   Do NOT add engineering complexity; polish and clarity win.
+2. **Missing table-stakes item: video walkthrough.** Sellers report video is
+   the top conversion lever and cuts refunds. Action: record/attach a short
+   walkthrough per product (even screen-capture of the sheet) — manual at
+   first, later automatable (slideshow of gallery images + captions).
+3. **Etsy channel matters more than previously ranked.** Gumroad = checkout,
+   not discovery. Etsy listing = $0.20 — promote Etsy expansion from "M5+"
+   to the first distribution phase (with AI-use disclosure per policy).
+4. **Loss-leader pricing works:** a $1–4 simple product farms reviews and
+   lifts shop-wide search rank; keep $12–19 systems as margin products.
+5. **Support responsiveness converts near-misses to 5-star reviews** — fast
+   Telegram-relayed buyer questions loop (future: auto-draft replies).
